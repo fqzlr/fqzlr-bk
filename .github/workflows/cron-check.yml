@@ -67,7 +67,7 @@ jobs:
             }
 
             // 解析为JSON数组（TS对象 → JSON）
-            // 策略：先把所有字符串字面量占位保护起来，再删注释，最后还原字符串
+            // 策略：先保护字符串字面量，再删注释，然后给所有裸属性名加引号，最后还原字符串
             const stringPlaceholders = [];
             let protectedRaw = match[1]
               // 保护多行/单行字符串字面量（包括引号本身）
@@ -81,20 +81,14 @@ jobs:
               .replace(/\/\/.*$/gm, '')
               .replace(/\/\*[\s\S]*?\*\//g, '');
 
-            // 还原字符串
-            let raw = protectedRaw.replace(/__STRING_(\d+)__/g, (_, i) => stringPlaceholders[+i]);
-
-            // TS 对象属性名加引号，转成合法 JSON
-            raw = raw
-              .replace(/\btitle\s*:/g, '"title":')
-              .replace(/\bimgurl\s*:/g, '"imgurl":')
-              .replace(/\bdesc\s*:/g, '"desc":')
-              .replace(/\bsiteurl\s*:/g, '"siteurl":')
-              .replace(/\btags\s*:/g, '"tags":')
-              .replace(/\bweight\s*:/g, '"weight":')
-              .replace(/\benabled\s*:/g, '"enabled":')
+            // TS 对象属性名加引号，转成合法 JSON（通用匹配所有裸属性名，新增字段无需维护白名单）
+            protectedRaw = protectedRaw
+              .replace(/(?<=[,{}[\]]\s*)([A-Za-z_$][\w$]*)\s*:/g, '"$1":')
               // 删除对象 / 数组尾部可能存在的 trailing commas
               .replace(/,\s*(?=[\]}])/g, '');
+
+            // 还原字符串
+            const raw = protectedRaw.replace(/__STRING_(\d+)__/g, (_, i) => stringPlaceholders[+i]);
 
             const friends = JSON.parse(raw);
             const results = [];
