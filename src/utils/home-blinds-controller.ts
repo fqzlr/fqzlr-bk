@@ -1176,13 +1176,9 @@ function setupScenes(context: SetupContext) {
 	const renderFinale = (t: number) => {
 		const bounded = clamp(t, 0, 1);
 		gsap.set(viewport, { autoAlpha: 1 - bounded });
-		// 衔接带在放大尾段淡入：终幕接近满屏时水波纹 / 渐变从底缘浮现，
-		// 滚出 pin 后带体留在文档流里，与下方内容区自然衔接
-		if (transitionBand) {
-			gsap.set(transitionBand, {
-				autoAlpha: clamp((bounded - 0.72) / 0.28, 0, 1),
-			});
-		}
+		// 衔接带不再随放大尾段淡入：显隐完全交给 renderExit 与面板顶缘同步。
+		// 旧逻辑在 bounded 0.72→1 把带淡到 1，pin 一释放 renderExit 又按
+		// t=0（面板还在一屏外）立刻清零——终幕刚满屏时带「闪现一下消失」
 		if (bounded <= 0) {
 			gsap.set(finalePortal, { autoAlpha: 0 });
 			return;
@@ -1202,6 +1198,11 @@ function setupScenes(context: SetupContext) {
 
 	/** pin 进度 → 横移进度 + 终幕放大进度：横移在尾段前走完，剩余全留给放大 */
 	const renderFromPinProgress = (progress: number) => {
+		// pin 已释放后渲染职责完全移交 renderExit（滚动驱动）：spacer 校准等
+		// 触发 ScrollTrigger.refresh 时 onUpdate 会以 progress=1 重放本函数，
+		// renderFinale(1) 会把满屏终幕重置回可见态，从内容面板下方未覆盖区
+		// （footer 等）透出背景大图——释放后必须整体短路
+		if (pinTrigger && window.scrollY >= pinTrigger.end) return;
 		const finaleT = clamp(
 			(progress - FINALE_ENTER_PROGRESS) / (1 - FINALE_ENTER_PROGRESS),
 			0,
@@ -1250,9 +1251,9 @@ function setupScenes(context: SetupContext) {
 			exitActive = false;
 			exitCovered = false;
 			gsap.set(finalePortal, { autoAlpha: 1, filter: "none" });
-			// 衔接带恢复终幕满屏时的完全可见态（renderFinale(1) 的状态），
-			// 并清掉退场期的同步位移（band 回到壁纸底缘原位）
-			if (transitionBand) gsap.set(transitionBand, { autoAlpha: 1, y: 0 });
+			// 衔接带回 pin 段复位为隐藏（显隐全由 renderExit 驱动），并清掉
+			// 退场期的同步位移（band 回到壁纸底缘原位）
+			if (transitionBand) gsap.set(transitionBand, { autoAlpha: 0, y: 0 });
 			if (afterglowHost)
 				gsap.set(afterglowHost, { "--home-afterglow-veil": "0" });
 			// 滚回 pin 段：文字层复位隐藏，重新交由退场进度驱动
@@ -1457,7 +1458,7 @@ function setupScenes(context: SetupContext) {
 	// 终幕文字层（独立 fixed 层）初始隐藏，等退场滚动由 renderExit 三段式驱动
 	if (finaleCopyLayer) gsap.set(finaleCopyLayer, { autoAlpha: 0, y: 0 });
 	gsap.set(finaleImage, { scale: () => cachedFinaleScale });
-	// 衔接带初始隐藏，终幕放大尾段由 renderFinale 淡入
+	// 衔接带初始隐藏，退场期由 renderExit 与面板顶缘同步驱动显隐
 	if (transitionBand) gsap.set(transitionBand, { autoAlpha: 0 });
 	gsap.set(cards, { autoAlpha: 0 });
 	// 立牌与背景跑马灯的初始姿态：以底边为铰链向后（远离视线）几乎平躺，入场时朝观众立起来
@@ -1575,6 +1576,25 @@ function setupScenes(context: SetupContext) {
 		},
 	});
 	rootInView = rootTrigger.isActive;
+
+	// 后备驱动：rootTrigger 在 root 底缘越过视口顶（end "bottom top"）后
+	// progress 恒 1、onUpdate 永久停止；而退场覆盖需 panelTop≤0，在更晚才
+	// 达成——此后约数百像素 renderExit 无人驱动，finalePortal 冻结在可见态，
+	// 透明 footer 区域持续透出终幕壁纸。用 window 级 scroll + rAF 合并做后备，
+	// renderExit 内 released≤0 立即早退，pin 段成本可忽略
+	let exitRafPending = false;
+	window.addEventListener(
+		"scroll",
+		() => {
+			if (exitRafPending) return;
+			exitRafPending = true;
+			requestAnimationFrame(() => {
+				exitRafPending = false;
+				renderExit();
+			});
+		},
+		{ passive: true, signal },
+	);
 
 	// refresh 事件在所有触发器重新测量之后触发，是缩放后唯一可靠的补偿时机。
 	// 必须先按新视口量一遍图框尺寸，再按新尺寸同步各幕位置，顺序不能颠倒。
