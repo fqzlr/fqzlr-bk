@@ -1,17 +1,17 @@
 ---
-import { siteConfig } from "@/config";
+// 公告内容与首页线条公告/侧边栏/全屏弹窗统一数据源：content/ziyuan/announcement.md
+import { getCollection } from "astro:content";
 
-const announcement = siteConfig.portal?.announcement;
-if (!announcement?.enable || !announcement.text) {
-	// 如果未启用，不渲染任何内容
-}
+const ziyuanEntries = await getCollection("ziyuan");
+const noticeEntry = ziyuanEntries.find((e) => e.id === "announcement");
+const announcementText = noticeEntry?.data?.content ?? "";
 ---
 
-{announcement?.enable && announcement.text && (
+{announcementText && (
   <div class="announcement-marquee">
     <div class="marquee-track">
-      <span class="marquee-content">{announcement.text}</span>
-      <span class="marquee-content" aria-hidden="true">{announcement.text}</span>
+      <span class="marquee-content">{announcementText}</span>
+      <span class="marquee-content" aria-hidden="true">{announcementText}</span>
     </div>
   </div>
 )}

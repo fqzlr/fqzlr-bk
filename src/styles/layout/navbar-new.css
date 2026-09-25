@@ -68,7 +68,18 @@
 	top: 50%;
 	transform: translateY(-50%);
 	justify-content: flex-end;
+	align-items: center;
 	gap: 0.25rem;
+}
+/* 右段按钮固定尺寸，避免搜索/主题按钮错位 */
+.navbar-seg--right .btn-plain {
+	flex: none;
+	height: 2.25rem;
+	line-height: 1;
+}
+/* 收缩成球模式下只保留搜索按钮，防止两个按钮在 2.25rem 球内溢出错位 */
+#navbar.scrolled .nav-theme-btn {
+	display: none;
 }
 
 /* 移动端：中段隐藏，左右段恢复 flex 排列 */

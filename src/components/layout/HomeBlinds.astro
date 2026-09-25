@@ -1,5 +1,6 @@
 ---
 import HomeBlindsScene from "@components/layout/HomeBlindsScene.astro";
+import { Icon } from "astro-icon/components";
 import { backgroundWallpaper, homeConfig } from "@/config";
 import type { HomeBlindsSceneItem } from "@/types/config";
 
@@ -41,6 +42,9 @@ const standImages = config.scenes.standImages.slice(
 );
 // 终幕放大层用的图片：横向叙事的最后一幕
 const finaleImage = sceneItems[sceneItems.length - 1]?.image ?? background;
+// 终幕文字层配置（hero 标题/副标题/快捷控件排），字段留空不渲染对应行
+const finale = config.finale;
+const finaleLinks = (finale?.links ?? []).filter((l) => l.icon && l.url);
 /**
  * 背景跑马灯：单格宽度固定为 CYCLE_CELL_VW，先把列表重复到「一轮 ≥ 一屏宽」，
  * 再整轮复制一份首尾相接，控制器把 xPercent 从 0 走到 -50 即为无缝左移。
@@ -332,7 +336,7 @@ const runtimeConfig = {
 	     position: fixed（与 fixed-stage 同款机制）：不能放进被 pin 的
 	     section——pin 释放后 section 残留的 transform 会把 fixed 退化成
 	     相对 section 定位，图片就会跟着滚动上移 -->
-	<div class="home-blinds__finale-portal" data-finale-portal aria-hidden="true">
+	<div class="home-blinds__finale-portal" data-finale-portal>
 		<img
 			class="home-blinds__finale-image"
 			src={finaleImage}
@@ -342,6 +346,166 @@ const runtimeConfig = {
 			data-finale-image
 		/>
 	</div>
+
+	<!-- 终幕文字层：独立 fixed 层（z3，位于内容区背景之上）。「番茄主理人」
+	     信息组与下方「快速带你前往」同层同速——控制器每帧实测罗盘标题位置，
+	     把文字块钉在其上方半个屏处随内容一起上滑；浮现期定点渐显。
+	     必须挂在根层级：被 pin 的 section 残留 transform 会让 fixed 退化 -->
+	{finale && (
+		<div class="home-blinds__finale-copy-layer" data-finale-copy-layer>
+			<div class="home-blinds__finale-copy" data-finale-copy>
+				<div class="home-blinds__finale-copy-inner">
+					{finale.eyebrow && (
+						<p class="home-blinds__finale-eyebrow">{finale.eyebrow}</p>
+					)}
+					{finale.heroTitle && (
+						<h2 class="home-blinds__finale-hero-title">{finale.heroTitle}</h2>
+					)}
+					{finale.heroSubtitle && (
+						<p class="home-blinds__finale-hero-subtitle">
+							{finale.heroSubtitle}
+						</p>
+					)}
+					{finaleLinks.length > 0 && (
+						<nav class="home-blinds__finale-links" aria-label="快捷入口">
+							{finaleLinks.map((link) => (
+								<a
+									class:list={[
+										"home-blinds__finale-link",
+										{ "home-blinds__finale-link--icon": !link.text },
+									]}
+									href={link.url}
+									target={link.external ? "_blank" : undefined}
+									rel={link.external ? "noreferrer noopener" : undefined}
+									aria-label={link.ariaLabel ?? link.text}
+									title={link.ariaLabel ?? link.text}
+								>
+									<Icon name={link.icon} aria-hidden="true" />
+									{link.text && <span>{link.text}</span>}
+								</a>
+							))}
+						</nav>
+					)}
+					{finale.copyright && (
+						<p class="home-blinds__finale-copyright">{finale.copyright}</p>
+					)}
+				</div>
+			</div>
+		</div>
+	)}
+
+	<style is:global>
+		/* 终幕文字层：图1 式博客信息（hero 标题 + 副标题 + 快捷控件排），
+		   白玻璃控件样式移植自 shirone-fq BannerStage。
+		   独立 fixed 层挂在 z3（内容区背景 z2 之上）——与「快速带你前往」
+		   同层同速上滑时全程保持清晰，不会被内容区渐变背景压暗 */
+		.home-blinds__finale-copy-layer {
+			position: fixed;
+			inset: 0;
+			z-index: 3;
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+			will-change: opacity, transform;
+		}
+		.home-blinds__finale-copy {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 2rem 1.5rem;
+			pointer-events: none;
+		}
+		.home-blinds__finale-copy-inner {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			color: #fff;
+			text-align: center;
+			text-shadow: 0 2px 12px rgba(0, 0, 0, 0.48);
+		}
+		.home-blinds__finale-eyebrow {
+			margin: 0 0 0.9rem;
+			font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+			font-weight: 600;
+			letter-spacing: 0.18em;
+			text-transform: uppercase;
+		}
+		.home-blinds__finale-hero-title {
+			margin: 0;
+			font-size: clamp(2.5rem, 6vw, 4.75rem);
+			font-weight: 700;
+			line-height: 1.08;
+		}
+		.home-blinds__finale-hero-subtitle {
+			margin: 0.9rem 0 0;
+			font-size: clamp(1rem, 1.6vw, 1.375rem);
+			font-weight: 500;
+		}
+		.home-blinds__finale-links {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 0.75rem;
+			margin-top: 1.4rem;
+			pointer-events: auto;
+		}
+		.home-blinds__finale-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.375rem;
+			height: 2.5rem;
+			padding: 0 1.125rem;
+			border-radius: 999px;
+			border: 1px solid rgba(255, 255, 255, 0.45);
+			background: rgba(255, 255, 255, 0.14);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			color: #fff;
+			font-size: 0.95rem;
+			text-decoration: none;
+			text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+			transition:
+				background-color 0.15s ease,
+				transform 0.15s ease;
+		}
+		.home-blinds__finale-link:hover {
+			background: rgba(255, 255, 255, 0.28);
+		}
+		.home-blinds__finale-link:active {
+			transform: scale(0.96);
+		}
+		.home-blinds__finale-link svg {
+			width: 1.125rem;
+			height: 1.125rem;
+			flex-shrink: 0;
+		}
+		.home-blinds__finale-link--icon {
+			width: 2.5rem;
+			padding: 0;
+			justify-content: center;
+		}
+		.home-blinds__finale-copyright {
+			margin: 1.6rem 0 0;
+			font-size: 0.8rem;
+			letter-spacing: 0.04em;
+			opacity: 0.85;
+		}
+		/* 终幕衔接占位：SSR 高度为 0，滚动时由控制器实测写入像素高度 */
+		.home-blinds__finale-spacer {
+			height: 0;
+		}
+		@media (max-width: 1023.98px) {
+			.home-blinds__finale-hero-title {
+				font-size: 2.75rem;
+			}
+			.home-blinds__finale-hero-subtitle {
+				font-size: 1.05rem;
+			}
+		}
+	</style>
 
 	<!-- 影像层与内容区的衔接带：参考页式纯线性渐变（transparent → --page-bg）。
 	     负 margin 上叠到终幕全屏图底缘；初始隐藏，控制器随终幕放大进度淡入 -->
@@ -369,6 +533,18 @@ const runtimeConfig = {
 		set:html={JSON.stringify(runtimeConfig)}
 	/>
 </div>
+
+<!-- 终幕衔接占位：把内容区压到一屏之外，让「番茄主理人」显影与停留期间
+     屏幕上只有定格壁纸；高度由控制器 calibrateFinaleSpacer 实测校准
+     （自动吸收衔接带、布局间距等占位差异），保证与「快速带你前往」
+     相距半屏、开始同速上滑的时刻落在显影完成之后 -->
+{isEnabled && finale && (
+	<div
+		class="home-blinds__finale-spacer"
+		data-finale-spacer
+		aria-hidden="true"
+	></div>
+)}
 
 <script>
 	import {

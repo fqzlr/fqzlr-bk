@@ -15,6 +15,7 @@ import PageLoader from "@components/features/PageLoader.astro";
 import SakuraEffect from "@components/features/SakuraEffect.astro";
 import ConfigCarrier from "@components/layout/ConfigCarrier.astro";
 import MobileDock from "@components/layout/MobileDock.astro";
+import AnnouncementModal from "@components/layout/AnnouncementModal.astro";
 
 import {
 	backgroundWallpaper,
@@ -523,6 +524,17 @@ const siteLang = lang.replace("_", "-");
 
     <slot name="head" />
 
+    <!-- 旧域名自动跳转到新域名（须尽早执行） -->
+    <script is:inline>
+      (function () {
+        var h = location.hostname;
+        if (h === "blog.fqzlr.com" || h === "fqzlr.com" || h === "www.fqzlr.com") {
+          location.replace("https://blog.fqzlr.top" + location.pathname + location.search + location.hash);
+        }
+      })();
+    </script>
+
+
     <link
       rel="alternate"
       type="application/rss+xml"
@@ -562,6 +574,7 @@ const siteLang = lang.replace("_", "-");
     <MusicManager />
     <FloatingLyrics />
     <MobileDock />
+    <AnnouncementModal />
     <slot />
 
 

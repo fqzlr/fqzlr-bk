@@ -10,6 +10,17 @@ import type {
 
 /* ========== 首页影像揭示层（HomeBlinds） ========== */
 
+/** 终幕快捷链接：文字胶囊（text 非空）或圆形图标按钮 */
+export type HomeBlindsFinaleLink = {
+	/** astro-icon 图标名 */
+	icon: string;
+	/** 显示文字；缺省渲染为圆形图标按钮 */
+	text?: string;
+	url: string;
+	external?: boolean;
+	ariaLabel?: string;
+};
+
 export type HomeBlindsSceneItem = {
 	/** 左侧竖排与顶栏左侧共用的英文标识 */
 	eyebrow: string;
@@ -103,19 +114,20 @@ export type HomeBlindsConfig = {
 		standImages: string[];
 	};
 	/**
-	 * 终幕文字层：最后一张图放大全屏后居中显示（参考 home-end-finale 的
-	 * 文字排布与滚动驱动入场）。字段留空则不渲染对应行
-	 */
-	finale?: {
-		/** 顶部小字，如 "The End" */
-		eyebrow?: string;
-		/** 主标题英文段 */
-		titleEn?: string;
-		/** 主标题中文段（含引号装饰） */
-		titleZh?: string;
-		/** 底部版权行 */
-		copyright?: string;
-	};
+		 * 终幕文字层：最后一张图放大全屏后居中显示。字段留空则不渲染对应行
+		 */
+		finale?: {
+			/** 顶部小字，如 "The End" */
+			eyebrow?: string;
+			/** 博客名大标题（hero） */
+			heroTitle?: string;
+			/** hero 副标题 */
+			heroSubtitle?: string;
+			/** hero 下方快捷链接排：文字胶囊 / 圆形图标按钮 */
+			links?: HomeBlindsFinaleLink[];
+			/** 底部版权行 */
+			copyright?: string;
+		};
 };
 
 export type HomeConfig = {

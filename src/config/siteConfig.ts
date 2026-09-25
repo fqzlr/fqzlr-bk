@@ -145,7 +145,7 @@ export const siteConfig: SiteConfig = {
 	portal: {
 		announcement: {
 			enable: true,
-			text: "欢迎来到Fqzlr的博客！专注NAS分享、AI实践、学习笔记与技术总结。",
+			text: "站点已迁移至 blog.fqzlr.top，恳请各位友链伙伴更新链接！",
 		},
 		dailyQuote: {
 			enable: true,

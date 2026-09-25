@@ -90,13 +90,35 @@ export const homeConfig: HomeConfig = {
 			],
 			standImages: ["/assets/images/home-blinds/act4/1.webp"],
 		},
-		// 终幕文字层：最后一张图放大全屏后居中显示，随放大尾段淡入上移
-		// （排布与动画节奏复刻自 XUIOO 博客的 home-end-finale，文案可自由修改）
+		// 终幕文字层：最后一张图放大全屏定格后，滚动渐现并与内容区同速上滑
+		// （排布与控件样式参考 shirone-fq 的 BannerStage 首页文案区）
 		finale: {
 			eyebrow: "The End",
-			titleEn: "Pure Wish True",
-			titleZh: "「纯粹祈愿皆成真」",
-			copyright: "Copyright © 2026 Fqzlr. All Rights Reserved",
+			heroTitle: "番茄主理人",
+			heroSubtitle: "清醒是痛苦的，但糊涂是需要天赋的",
+			links: [
+				{
+					icon: "simple-icons:bilibili",
+					text: "Bilibili",
+					url: "https://space.bilibili.com/2017273493",
+					external: true,
+				},
+				{
+					icon: "fa7-regular:envelope",
+					url: "mailto:20447289@qq.com",
+					ariaLabel: "邮件联系",
+				},
+				{
+					icon: "fa7-regular:heart",
+					url: "/sponsor/",
+					ariaLabel: "赞助支持",
+				},
+				{
+					icon: "fa7-solid:rss",
+					url: "/rss.xml",
+					ariaLabel: "RSS 订阅",
+				},
+			],
 		},
 	},
 };

@@ -1,0 +1,223 @@
+---
+/**
+ * 全站公告弹窗（全屏 UI 版公告栏）
+ * - 内容与首页线条公告/侧边栏公告同源：content/ziyuan/announcement.md，改一处全站同步
+ * - 首次访问自动弹出，点击「我知道了」后写入 localStorage 不再自动弹
+ * - 页脚「站点公告」等 [data-open-notice] 元素可随时重新打开
+ */
+import { getCollection } from "astro:content";
+
+const ziyuanEntries = await getCollection("ziyuan");
+const noticeEntry = ziyuanEntries.find((e) => e.id === "announcement");
+const noticeText = noticeEntry?.data?.content ?? "";
+---
+
+<div id="site-notice-modal" class="site-notice-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="站点公告">
+	<div class="site-notice-mask" data-notice-close></div>
+	<div class="site-notice-card">
+		<div class="site-notice-header">
+			<h2 class="site-notice-title">站点公告</h2>
+			<button class="site-notice-close" type="button" aria-label="关闭" data-notice-close>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
+		</div>
+		<div class="site-notice-body">
+			<p class="site-notice-text">{noticeText}</p>
+		</div>
+		<div class="site-notice-footer">
+			<button class="site-notice-confirm" type="button" data-notice-accept>我知道了</button>
+		</div>
+	</div>
+</div>
+
+<style>
+	.site-notice-modal {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		display: none;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+	}
+	.site-notice-modal.is-open {
+		display: flex;
+	}
+	.site-notice-mask {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
+	}
+	.site-notice-card {
+		position: relative;
+		width: min(32rem, 100%);
+		max-height: min(80vh, 40rem);
+		display: flex;
+		flex-direction: column;
+		background: #ffffff;
+		border-radius: 0.75rem;
+		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+		overflow: hidden;
+		animation: notice-in 0.22s ease-out;
+	}
+	:global(.dark) .site-notice-card {
+		background: #24272e;
+		color: #d6d9de;
+		box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+	}
+	@keyframes notice-in {
+		from {
+			opacity: 0;
+			transform: translateY(14px) scale(0.97);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	.site-notice-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.9rem 1.1rem;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		flex: none;
+	}
+	:global(.dark) .site-notice-header {
+		border-bottom-color: rgba(255, 255, 255, 0.1);
+	}
+	.site-notice-title {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: #1f2329;
+	}
+	:global(.dark) .site-notice-title {
+		color: #eceef1;
+	}
+	.site-notice-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.9rem;
+		height: 1.9rem;
+		border: none;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: #6b7280;
+		cursor: pointer;
+		transition: background-color 0.15s ease;
+	}
+	.site-notice-close:hover {
+		background: rgba(0, 0, 0, 0.06);
+	}
+	:global(.dark) .site-notice-close {
+		color: #9aa1ab;
+	}
+	:global(.dark) .site-notice-close:hover {
+		background: rgba(255, 255, 255, 0.08);
+	}
+	.site-notice-body {
+		padding: 1rem 1.25rem;
+		overflow-y: auto;
+		font-size: 0.875rem;
+		line-height: 1.8;
+		color: #3d434c;
+	}
+	:global(.dark) .site-notice-body {
+		color: #c3c8cf;
+	}
+	.site-notice-body p {
+		margin: 0;
+	}
+	.site-notice-text {
+		font-size: 0.95rem;
+		line-height: 1.9;
+	}
+	.site-notice-footer {
+		display: flex;
+		justify-content: flex-end;
+		padding: 0.8rem 1.1rem 1rem;
+		flex: none;
+	}
+	.site-notice-confirm {
+		padding: 0.5rem 1.4rem;
+		border: none;
+		border-radius: 0.5rem;
+		background: #1f2329;
+		color: #ffffff;
+		font-size: 0.875rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: opacity 0.15s ease, transform 0.15s ease;
+	}
+	.site-notice-confirm:hover {
+		opacity: 0.85;
+	}
+	.site-notice-confirm:active {
+		transform: scale(0.97);
+	}
+	:global(.dark) .site-notice-confirm {
+		background: #e8eaed;
+		color: #1f2329;
+	}
+</style>
+
+<script>
+	function openNotice() {
+		const modal = document.getElementById("site-notice-modal");
+		if (!modal) return;
+		modal.classList.add("is-open");
+		modal.setAttribute("aria-hidden", "false");
+		document.documentElement.classList.add("notice-locked");
+	}
+	function closeNotice(markRead = false) {
+		const modal = document.getElementById("site-notice-modal");
+		if (!modal) return;
+		modal.classList.remove("is-open");
+		modal.setAttribute("aria-hidden", "true");
+		document.documentElement.classList.remove("notice-locked");
+		if (markRead) {
+			try {
+				localStorage.setItem("site-notice-read-v1", new Date().toISOString());
+			} catch {
+				/* 存储不可用时忽略，下次仍会自动弹出 */
+			}
+		}
+	}
+	document.addEventListener("DOMContentLoaded", () => {
+		let read = true;
+		try {
+			read = Boolean(localStorage.getItem("site-notice-read-v1"));
+		} catch {
+			read = false;
+		}
+		if (!read) setTimeout(openNotice, 600);
+		document.addEventListener("click", (e) => {
+			const target = e.target as Element | null;
+			if (!target) return;
+			if (target.closest("[data-open-notice]")) {
+				e.preventDefault();
+				openNotice();
+			} else if (target.closest("[data-notice-accept]")) {
+				closeNotice(true);
+			} else if (target.closest("[data-notice-close]")) {
+				closeNotice(false);
+			}
+		});
+		document.addEventListener("keydown", (e) => {
+			if (e.key === "Escape") closeNotice(false);
+		});
+	});
+	void "";
+</script>
+
+<style is:global>
+	/* 弹窗打开时锁定页面滚动 */
+	html.notice-locked,
+	html.notice-locked body {
+		overflow: hidden !important;
+	}
+</style>

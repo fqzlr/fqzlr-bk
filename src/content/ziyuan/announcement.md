@@ -1,10 +1,10 @@
 ---
 title: "公告"
-content: " 公告 : 疯狂修改中"
+content: "本站已迁移至 blog.fqzlr.top，恳请各位友链伙伴更新链接！"
 closable: true
 link:
   enable: true
-  text: "了解更多"
-  url: "/about/"
-  external: false
+  text: "访问新地址"
+  url: "https://blog.fqzlr.top"
+  external: true
 ---
