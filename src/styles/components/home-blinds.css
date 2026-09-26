@@ -154,8 +154,9 @@
    收缩互逆——元素恒为满屏，放大靠 clip-path 从图框扩到 0，内部图片做等比 scale。
    挂在根层级、恒为 position: fixed（与 fixed-stage 同款机制，root 无 transform
    祖先，fixed 始终相对视口）：pin 期间 section 被钉在视口顶，二者几何重合；
-   pin 释放后图片继续钉在原地，由衔接带(z2)与内容区背景(z2)从上方盖过。
-   z 序：fixed-stage(0) < 终幕层(1) < 衔接带/内容区(2)。 */
+   pin 释放后图片继续钉在原地，随滚动平滑模糊 + 漂白（Serenity 式退场，
+   见 home-blinds-controller 的 renderExit），内容区(z2)直接浮在其上。
+   z 序：fixed-stage(0) < 终幕层(1) < 内容区(2)。 */
 .home-blinds__finale-portal {
 	position: fixed;
 	inset: 0;

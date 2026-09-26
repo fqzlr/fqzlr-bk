@@ -63,8 +63,11 @@ const FINALE_COPY_SPAN = 0.3;
 const FINALE_COPY_GAP = 0.5;
 /** 完全显示后原地停留的屏数，之后才开始与内容区同速上滑 */
 const FINALE_COPY_SETTLE = 0.06;
-/** 内容面板顶缘从视口底缘上升这段屏数的过程中，veil 背景 0→1 变实 */
-const FINALE_VEIL_SPAN = 0.18;
+/** Serenity 式退场：终幕图最大模糊半径（px）。罗盘标题升到页顶时达到该值 */
+const FINALE_BLUR_MAX = 12;
+/** 模糊量化步长（px）：整屏 blur 每次变化都会触发重栅格化，
+ * 量化到 2px 档位把重绘频率压到 6 档，平滑度由透明度渐变补足 */
+const FINALE_BLUR_STEP = 2;
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 769px)";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -1219,28 +1222,26 @@ function setupScenes(context: SetupContext) {
 	};
 
 	/**
-	 * 终幕退场：终幕层恒为 position: fixed（root 直下，无 transform 祖先），
-	 * 全屏图片钉在视口里一动不动，全程保持完全不透明、无模糊；下方内容区
-	 * 背景（不含文字，由 .home-content::before 承担）初始全透明，veil 与
-	 * 内容面板顶缘的视口位置绑定：顶缘从视口底缘上升 FINALE_VEIL_SPAN 屏
-	 * 的过程中 0→1 快速变实，面板以近乎实心白底推上来盖住壁纸；顶缘越过
-	 * 视口顶（真正盖满）后隐藏 portal（防止深处透明区域透出）。滚动回退
-	 * 按同一实测值还原，无跳变。
+	 * 终幕退场（Serenity 式）：终幕层恒为 position: fixed（root 直下，无
+	 * transform 祖先），全屏图片钉在视口里一动不动。退场不再用白色面板
+	 * 从下方盖过，而是参考 Halo theme-Serenity：背景一开始清晰完整，「番
+	 * 茄主理人」标题显影时保持清晰；随后随滚动整幅背景平滑地同时增加透
+	 * 明度与模糊度（图片 alpha 1→0 + blur 0→FINALE_BLUR_MAX，portal 自身
+	 * 的 page-bg 底色逐渐透出形成漂白），直到「快速带你前往」标题升到页
+	 * 面最上方时背景完全变成纯色。内容区自身不带任何背景板，文字直接浮
+	 * 在渐变背景上。滚动回退按同一实测值完全还原，无跳变。
 	 *
-	 * 终幕文字层在同一退场滚动里走三段式：定格后滚过 FINALE_COPY_DELAY 屏
-	 * 才在屏幕正中原地渐渐显影（位置不动），完全显示后再停留
-	 * FINALE_COPY_SETTLE 屏才转为钉层轨迹——每帧实测罗盘标题「快速带你
-	 * 前往」的视口位置，把文字块底缘钉在其上方半个屏处，与内容区同层同速
-	 * 上滑，直至滑出视口。显影期间罗盘仍在视口外，由 calibrateFinaleSpacer
-	 * 校准衔接占位保证。
+	 * 驱动量为罗盘标题的实时视口位置：top 从视口底缘（t=0，背景清晰）
+	 * 升到视口顶缘（t=1，纯色）恰好一屏滚动。终幕文字层三段式不变：
+	 * 定格后滚过 FINALE_COPY_DELAY 屏才在屏幕正中原地渐渐显影（位置不动），
+	 * 完全显示后再停留 FINALE_COPY_SETTLE 屏才转为钉层轨迹——每帧实测罗
+	 * 盘标题「快速带你前往」的视口位置，把文字块底缘钉在其上方半个屏处，
+	 * 与内容区同层同速上滑，直至滑出视口。显影期间罗盘仍在视口外，由
+	 * calibrateFinaleSpacer 校准衔接占位保证。
 	 */
 	let exitActive = false;
-	/** 覆盖完成的迟滞标记：t 到 1 后即使平滑滚动轻微回弹到 0.99x 也保持盖住，防止 0↔1 边界闪烁 */
+	/** 覆盖完成的迟滞标记：内容面板顶缘越过视口顶后即使平滑滚动轻微回弹也保持，防止边界闪烁 */
 	let exitCovered = false;
-	/** 衔接带的流位置基准（released=0 时的视口 top）：band 随文档流以斜率
-	 * -1 移动，transform 会污染 rect 实测值，故只在基准失效（首帧/refresh）
-	 * 时清 y 重测一次，此后按基准 - released 推算 */
-	let bandTopBase: number | null = null;
 	const afterglowHost = document.getElementById("home-afterglow");
 	const renderExit = () => {
 		if (!pinTrigger) return;
@@ -1251,59 +1252,51 @@ function setupScenes(context: SetupContext) {
 			exitActive = false;
 			exitCovered = false;
 			gsap.set(finalePortal, { autoAlpha: 1, filter: "none" });
-			// 衔接带回 pin 段复位为隐藏（显隐全由 renderExit 驱动），并清掉
-			// 退场期的同步位移（band 回到壁纸底缘原位）
+			// 图片恢复清晰不透明（renderFinale 只管 scale，透明度/模糊归这里）
+			gsap.set(finaleImage, { autoAlpha: 1, filter: "none" });
+			// 衔接带回 pin 段复位为隐藏（新退场不再使用衔接带，防御性清零）
 			if (transitionBand) gsap.set(transitionBand, { autoAlpha: 0, y: 0 });
-			if (afterglowHost)
-				gsap.set(afterglowHost, { "--home-afterglow-veil": "0" });
 			// 滚回 pin 段：文字层复位隐藏，重新交由退场进度驱动
 			if (finaleCopyLayer) gsap.set(finaleCopyLayer, { autoAlpha: 0, y: 0 });
 			return;
 		}
 		exitActive = true;
 		const vh = Math.max(1, window.innerHeight);
-		// 内容面板顶缘的实时视口位置（每帧实测，白面板从下方推上来盖住壁纸）。
-		// veil 与它绑定而非与 released 绑定：衔接占位校准后内容区进入视口的
-		// 时刻明显推迟，若仍按 released/vh 渐变，面板会拖着半透明白雾爬半屏，
-		// 把壁纸蒙出一圈生硬分界。现改为顶缘从视口底缘上升 FINALE_VEIL_SPAN 屏
-		// 的过程中 0→1 快速变实，面板以近乎实心白底推上来，干净盖住壁纸
+		// 布局量测统一在任何写入之前完成（避免写入使布局失效触发同步 reflow）：
+		// 罗盘标题视口位置 = 退场进度 t 的驱动量；内容面板顶缘仅用于覆盖迟滞判定
+		const compassTop = compassTitle
+			? compassTitle.getBoundingClientRect().top
+			: vh - released;
 		const panelTop = afterglowHost
 			? afterglowHost.getBoundingClientRect().top
 			: vh - released;
-		const t = clamp((vh - panelTop) / (vh * FINALE_VEIL_SPAN), 0, 1);
-		// 迟滞：面板顶缘越过视口顶（真正盖满）才置覆盖，回落超过 2% 屏才解除，
-		// 防止边界抖动导致 portal 先隐后现的闪烁
+		// Serenity 进度：罗盘标题从视口底缘升到视口顶缘的一屏滚动里 0→1。
+		// 标题显影期罗盘尚在视口外（t=0），背景保持清晰
+		const t = clamp((vh - compassTop) / vh, 0, 1);
+		// 迟滞：内容面板顶缘越过视口顶（纯色已完全接管）才置覆盖，回落超过
+		// 2% 屏才解除，防止边界抖动导致图片先隐后现的闪烁
 		if (panelTop <= 0) exitCovered = true;
 		else if (panelTop > vh * 0.02) exitCovered = false;
-		// 图片本身不动不淡；被背景盖满后整层隐藏，滚回即恢复
-		gsap.set(finalePortal, {
-			autoAlpha: exitCovered ? 0 : 1,
-			filter: "none",
-		});
-		// 衔接带渐白缓冲（transparent → page-bg）：与面板顶缘同步——每帧把
-		// 渐白端（底缘）平移到面板顶缘处，跟面板一起推进，成为面板的柔和上边。
-		// 原布局把 band 钉在壁纸底缘、与面板顶缘间距恒定（面板永远追不上它），
-		// band 会提前蒙在壁纸中部，底缘切出一条生硬的分界线
-		if (transitionBand) {
-			if (bandTopBase === null) {
-				// 基准失效：清掉位移还原流内位置后重测一次（同帧回写，无闪烁）
-				gsap.set(transitionBand, { y: 0 });
-				bandTopBase = transitionBand.getBoundingClientRect().top + released;
-			}
-			const bandTop = bandTopBase - released;
-			gsap.set(transitionBand, {
-				autoAlpha: exitCovered ? 1 : t,
-				y: panelTop - transitionBand.offsetHeight - bandTop,
+		if (exitCovered) {
+			// 纯色接管后图片彻底退场：portal 自身 page-bg 底色就是页面背景
+			gsap.set(finalePortal, { autoAlpha: 1, filter: "none" });
+			gsap.set(finaleImage, { autoAlpha: 0, filter: "none" });
+		} else {
+			// 背景随滚动平滑模糊 + 漂白：blur 量化到 2px 档（整屏 filter 每档
+			// 才重栅格化一次），透明度逐帧连续渐变补足平滑感；portal 的
+			// page-bg 底色随图片透明度下降逐渐透出
+			const q =
+				Math.round((t * FINALE_BLUR_MAX) / FINALE_BLUR_STEP) * FINALE_BLUR_STEP;
+			gsap.set(finalePortal, { autoAlpha: 1 });
+			gsap.set(finaleImage, {
+				autoAlpha: 1 - t,
+				filter: q > 0 ? `blur(${q}px)` : "none",
 			});
 		}
-		if (afterglowHost)
-			gsap.set(afterglowHost, {
-				"--home-afterglow-veil": exitCovered ? "1" : t.toFixed(4),
-			});
 		// 终幕文字层三段式（全部由 released 派生，来回滚动可完全还原）：
 		// 定格缓冲 → 正中原地渐渐显影（位置一步不动）→ 完全显示后原地停留
 		// FINALE_COPY_SETTLE 屏，再切钉层轨迹与内容区同速上滑。
-		// 钉层轨迹：每帧实测罗盘标题位置反推「轨迹过正中点」的 released 值
+		// 钉层轨迹：由罗盘标题位置反推「轨迹过正中点」的 released 值
 		// （crossing，文字与罗盘间距恰为半屏的时刻），y = min(0, crossing -
 		// released)——接管前文字停在正中，接管后斜率 -1 与内容同速上滑；
 		// crossing 由 calibrateFinaleSpacer 校准落在显影完成之后，
@@ -1328,11 +1321,7 @@ function setupScenes(context: SetupContext) {
 			if (compassTitle) {
 				const halfBlock = (finaleCopyInner?.offsetHeight ?? 0) / 2;
 				const crossing =
-					compassTitle.getBoundingClientRect().top -
-					vh * FINALE_COPY_GAP -
-					halfBlock -
-					vh / 2 +
-					released;
+					compassTop - vh * FINALE_COPY_GAP - halfBlock - vh / 2 + released;
 				y = Math.min(0, crossing - released);
 			} else {
 				// 未找到锚点时退回纯位移公式：显影完成后即与内容同速上滑
@@ -1601,8 +1590,6 @@ function setupScenes(context: SetupContext) {
 	const handleRefresh = () => {
 		measureScene();
 		syncStage();
-		// 视口变化后衔接带流位置失效，清基准让 renderExit 重新实测
-		bandTopBase = null;
 		// 视口变化后重测终幕衔接占位（罗盘/文字块的实际尺寸都可能变化）
 		calibrateFinaleSpacer();
 	};

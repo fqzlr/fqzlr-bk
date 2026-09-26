@@ -1,8 +1,8 @@
 /* ============================================
    首页内容区（home-content）+ 快速导航（HomeCompass）
-   home-content 承接 HomeBlinds 终幕退场的 afterglow veil：
-   初始全透明，随滚动由控制器写入 --home-afterglow-veil 0→1，
-   渐变到不透明后连同下方内容一起盖住 fixed 终幕图。
+   退场背景由 HomeBlinds 终幕层（fixed portal）接管：随滚动整幅
+   背景平滑模糊 + 漂白，罗盘标题升到页顶时变为纯色 page-bg。
+   内容区自身不带任何背景板，文字直接浮在背景上（Serenity 式）。
    ============================================ */
 
 .home-content {
@@ -13,21 +13,6 @@
 	   供 compass / notice / recent 三个模块共用，保证宽度一致 */
 	--home-container-w: 75rem;
 	--home-container-pad: 1.5rem;
-}
-
-/* 终幕退场的内容背景层（不含文字）：水平 full-bleed，
-   z-index -1 垫在文字/卡片之下（原 .home-digest::before 的职责迁移） */
-.home-content::before {
-	content: "";
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: calc(50% - 50vw);
-	right: calc(50% - 50vw);
-	z-index: -1;
-	background: var(--page-bg);
-	opacity: var(--home-afterglow-veil, 0);
-	pointer-events: none;
 }
 
 /* ── 快速带你前往（HomeCompass） ── */
